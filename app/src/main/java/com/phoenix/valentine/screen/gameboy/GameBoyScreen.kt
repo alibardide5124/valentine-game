@@ -1,7 +1,9 @@
 package com.phoenix.valentine.screen.gameboy
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,18 +21,40 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toIntSize
+import com.phoenix.valentine.R
 import com.phoenix.valentine.ui.theme.ClippedCircleShape
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun GameBoyScreen() {
+fun GameBoyScreen(
+    characterPosition: Offset,
+    onPositionChange: (PositionChange) -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
+    var isDPadPressing by remember { mutableStateOf(false) }
+
     Scaffold { innerPadding ->
         // GameBoyUi
         Column(
@@ -43,26 +67,65 @@ fun GameBoyScreen() {
                 .background(MaterialTheme.colorScheme.onSurface)
         ) {
             // Screen
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(5f)
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Gray)
+            GameBoyCanvas(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+                characterOffset = characterPosition
             )
             // Controls
             GameBoyControls(
                 Modifier
                     .fillMaxSize()
-                    .weight(4f)
+                    .weight(1f),
+                onClickDPad = {
+                    isDPadPressing = true
+                    coroutineScope.launch {
+                        do {
+                            onPositionChange(it)
+                            delay(50)
+                        } while(isDPadPressing)
+                    }
+                },
+                releaseDPad = { isDPadPressing = false }
             )
         }
     }
 }
 
 @Composable
-private fun GameBoyControls(modifier: Modifier = Modifier) {
+private fun GameBoyCanvas(
+    modifier: Modifier = Modifier,
+    characterOffset: Offset
+) {
+    val normalImage = painterResource(id = R.drawable.canvas_normal)
+    val catFrontLeft = ImageBitmap.imageResource(id = R.drawable.cat_front_left)
+
+    Canvas(
+        modifier = modifier
+            .padding(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+    ) {
+        with(normalImage) {
+            draw(size)
+        }
+        drawImage(
+            image = catFrontLeft.apply { },
+            dstSize = (size * 0.075f).toIntSize(),
+            dstOffset = IntOffset(
+                x = (size.width * characterOffset.x).toInt(),
+                y = (size.height * characterOffset.y).toInt()
+            )
+        )
+    }
+}
+
+@Composable
+private fun GameBoyControls(
+    modifier: Modifier = Modifier,
+    onClickDPad: (PositionChange) -> Unit,
+    releaseDPad: () -> Unit
+) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -75,54 +138,90 @@ private fun GameBoyControls(modifier: Modifier = Modifier) {
         ) {
             // D-Pad
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // TOP D-Pad
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .width(36.dp)
+                        .background(Color.Gray)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    try {
+                                        onClickDPad(PositionChange.UP)
+                                        awaitRelease()
+                                    } finally {
+                                        releaseDPad()
+                                    }
+                                },
+                            )
+                        }
+                )
                 Row {
+                    // LEFT D-Pad
                     Box(
                         modifier = Modifier
                             .height(36.dp)
                             .width(36.dp)
                             .background(Color.Gray)
-                            .clickable {
-
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        try {
+                                            onClickDPad(PositionChange.LEFT)
+                                            awaitRelease()
+                                        } finally {
+                                            releaseDPad()
+                                        }
+                                    },
+                                )
+                            }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .width(36.dp)
+                            .background(Color.Gray)
+                    )
+                    // RIGHT D-Pad
+                    Box(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .width(36.dp)
+                            .background(Color.Gray)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        try {
+                                            onClickDPad(PositionChange.RIGHT)
+                                            awaitRelease()
+                                        } finally {
+                                            releaseDPad()
+                                        }
+                                    },
+                                )
                             }
                     )
                 }
-                Row {
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                            .clickable {
-
-                            }
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                            .clickable {
-
-                            }
-                    )
-                }
-                Row {
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                            .clickable {
-
-                            }
-                    )
-                }
+                // BOTTOM D-Pad
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .width(36.dp)
+                        .background(Color.Gray)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    try {
+                                        onClickDPad(PositionChange.DOWN)
+                                        awaitRelease()
+                                    } finally {
+                                        releaseDPad()
+                                    }
+                                },
+                            )
+                        }
+                )
             }
             // A, B
             Column(
@@ -215,5 +314,11 @@ private fun GameBoyControls(modifier: Modifier = Modifier) {
 @Preview
 @Composable
 fun GameBoyScreenPreview() {
-    GameBoyScreen()
+    GameBoyScreen(
+        characterPosition = Offset(
+            x = GameBoyUiState().characterPositionX,
+            y = GameBoyUiState().characterPositionY
+        ),
+        onPositionChange = {}
+    )
 }

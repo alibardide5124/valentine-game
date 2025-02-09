@@ -2,6 +2,7 @@ package com.phoenix.valentine.screen.gameboy
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.geometry.Offset
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -11,5 +12,8 @@ fun GameBoyRoute(
 ) {
     val uiState by gameBoyViewModel.uiState.collectAsStateWithLifecycle()
 
-    GameBoyScreen()
+    GameBoyScreen(
+        characterPosition = Offset(uiState.characterPositionX, uiState.characterPositionY),
+        onPositionChange = { gameBoyViewModel.onEvent(GameBoyUiEvent.UpdateCharacterPosition(it)) }
+    )
 }
