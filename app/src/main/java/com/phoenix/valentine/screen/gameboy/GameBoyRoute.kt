@@ -16,10 +16,10 @@ fun GameBoyRoute(
         characterPosition = Offset(uiState.characterPositionX, uiState.characterPositionY),
         characterDirection = uiState.characterDirection,
         onPositionChange = { gameBoyViewModel.onEvent(GameBoyUiEvent.UpdateCharacterPosition(it)) },
-        displayCredit = uiState.displayCredit,
-        goToCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickStartSelect) },
-        removeCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.B)) },
+        isCreditDisplayed = uiState.displayCredit,
+        requestDisplayCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickStartSelect) },
+        requestRemoveCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.B)) },
         actionState = uiState.actionState,
-        handleAction = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.A)) }
+        onAction = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.A)) }
     )
 }

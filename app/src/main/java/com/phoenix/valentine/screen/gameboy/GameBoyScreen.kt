@@ -1,5 +1,7 @@
 package com.phoenix.valentine.screen.gameboy
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,10 +59,10 @@ fun GameBoyScreen(
     characterDirection: CharacterDirection,
     onPositionChange: (PositionChange) -> Unit,
     actionState: ActionState,
-    handleAction: () -> Unit,
-    displayCredit: Boolean,
-    goToCredit: () -> Unit,
-    removeCredit: () -> Unit,
+    onAction: () -> Unit,
+    isCreditDisplayed: Boolean,
+    requestDisplayCredit: () -> Unit,
+    requestRemoveCredit: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isDPadPressing by remember { mutableStateOf(false) }
@@ -80,10 +82,11 @@ fun GameBoyScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f),
-                displayCredit = displayCredit,
+                displayCredit = isCreditDisplayed,
                 characterOffset = characterPosition,
                 characterDirection = characterDirection,
-                isMoving = isDPadPressing
+                isMoving = isDPadPressing,
+                actionState = actionState
             )
             GameBoyControls(
                 Modifier
@@ -99,9 +102,9 @@ fun GameBoyScreen(
                     }
                 },
                 releaseDPad = { isDPadPressing = false },
-                onClickA = { handleAction() },
-                onClickB = { removeCredit() },
-                onClickStartSelect = { goToCredit() }
+                onClickA = { onAction() },
+                onClickB = { requestRemoveCredit() },
+                onClickStartSelect = { requestDisplayCredit() }
             )
         }
     }
@@ -113,11 +116,17 @@ private fun GameBoyCanvas(
     displayCredit: Boolean,
     characterOffset: Offset,
     characterDirection: CharacterDirection,
-    isMoving: Boolean
+    isMoving: Boolean,
+    actionState: ActionState
 ) {
+    // Init screens
     val normalImage = painterResource(id = R.drawable.canvas_normal)
+    val yesImage = painterResource(id = R.drawable.canvas_yes)
     val creditImage = painterResource(id = R.drawable.canvas_credit)
 
+    val achivement = ImageBitmap.imageResource(id = R.drawable.achivement)
+
+    // Init cat animation variants
     val catLeft1 = ImageBitmap.imageResource(id = R.drawable.cat_left_1)
     val catLeft2 = ImageBitmap.imageResource(id = R.drawable.cat_left_2)
     val catRight1 = ImageBitmap.imageResource(id = R.drawable.cat_right_1)
@@ -175,14 +184,25 @@ private fun GameBoyCanvas(
 
     // Animation state
     var currentAnimationState by remember { mutableIntStateOf(0) }
-    val animationDelay = 250L // Adjust for animation speed
-
     LaunchedEffect(isMoving) {
         if (isMoving) {
             while (true) {
-                delay(animationDelay)
+                delay(250L)
                 currentAnimationState = (currentAnimationState + 1) % 2
             }
+        }
+    }
+
+    val fadeInAnimation = remember { Animatable(0f) }
+    val slideUpAnimation = remember { Animatable(0f) }
+
+    LaunchedEffect(actionState == ActionState.YES) {
+        if (actionState == ActionState.YES) {
+            fadeInAnimation.animateTo(1f, animationSpec = tween(durationMillis = 500))
+            slideUpAnimation.animateTo(
+                1f,
+                animationSpec = tween(durationMillis = 500, delayMillis = 1000)
+            )
         }
     }
 
@@ -208,7 +228,6 @@ private fun GameBoyCanvas(
                     (it.animationState == CharacterAnimationState.entries.toTypedArray()[currentAnimationState])
         }
 
-        // Draw the character
         currentSprite?.let {
             drawImage(
                 image = it.image,
@@ -218,6 +237,24 @@ private fun GameBoyCanvas(
                     y = (size.height * characterOffset.y).toInt()
                 )
             )
+        }
+
+        if (actionState == ActionState.NO) {
+
+        }
+
+        if (actionState == ActionState.YES) {
+            with(yesImage) {
+                draw(size, alpha = fadeInAnimation.value)
+            }
+            drawImage(
+                image = achivement,
+                topLeft = Offset(
+                    x = (size.width / 6),
+                    y = (size.height) - (size.height * 0.18f * slideUpAnimation.value)
+                )
+            )
+            return@Canvas
         }
     }
 }
@@ -459,10 +496,10 @@ fun GameBoyScreenPreview() {
         ),
         characterDirection = uiState.characterDirection,
         onPositionChange = {},
-        displayCredit = false,
-        goToCredit = {},
-        removeCredit = {},
+        isCreditDisplayed = false,
+        requestDisplayCredit = {},
+        requestRemoveCredit = {},
         actionState = ActionState.NONE,
-        handleAction = {}
+        onAction = {}
     )
 }

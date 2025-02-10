@@ -22,7 +22,8 @@ class GameBoyViewModel @Inject constructor(
     fun onEvent(event: GameBoyUiEvent) {
         when (event) {
             is GameBoyUiEvent.UpdateCharacterPosition -> {
-                handleCharacterPosition(event.positionChange)
+                if (uiState.value.actionState == ActionState.NONE)
+                    handleCharacterPosition(event.positionChange)
             }
 
             is GameBoyUiEvent.OnClickActionButton -> {
