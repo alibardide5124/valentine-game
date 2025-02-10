@@ -14,6 +14,10 @@ fun GameBoyRoute(
 
     GameBoyScreen(
         characterPosition = Offset(uiState.characterPositionX, uiState.characterPositionY),
-        onPositionChange = { gameBoyViewModel.onEvent(GameBoyUiEvent.UpdateCharacterPosition(it)) }
+        characterDirection = uiState.characterDirection,
+        onPositionChange = { gameBoyViewModel.onEvent(GameBoyUiEvent.UpdateCharacterPosition(it)) },
+        displayCredit = uiState.displayCredit,
+        goToCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickStartSelect) },
+        removeCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.B)) }
     )
 }

@@ -1,6 +1,7 @@
 package com.phoenix.valentine.screen.gameboy
 
 import androidx.lifecycle.ViewModel
+import com.phoenix.valentine.model.CharacterDirection
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,48 +16,83 @@ class GameBoyViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(GameBoyUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val offset = 0.01f
+    private val POSITION_OFFSET = 0.01f
 
     fun onEvent(event: GameBoyUiEvent) {
         when (event) {
             is GameBoyUiEvent.UpdateCharacterPosition -> {
-                when(event.positionChange) {
-                    PositionChange.LEFT -> {
-                        _uiState.update {
-                            if (isInBound(it.characterPositionX, it.characterBoundX.start..1f))
-                                it.copy(characterPositionX = it.characterPositionX - offset)
-                            else it
-                        }
-                    }
-                    PositionChange.RIGHT ->
-                        _uiState.update {
-                            if (isInBound(it.characterPositionX, 0f..it.characterBoundX.endInclusive))
-                                it.copy(characterPositionX = it.characterPositionX + offset)
-                            else it
-                        }
-                    PositionChange.UP -> {
-                        _uiState.update {
-                            if (isInBound(it.characterPositionY, it.characterBoundY.start..1f))
-                                it.copy(characterPositionY = it.characterPositionY - offset)
-                            else it
-                        }
-                    }
-                    PositionChange.DOWN -> {
-                        _uiState.update {
-                            if (isInBound(it.characterPositionY, 0f..it.characterBoundY.endInclusive))
-                                it.copy(characterPositionY = it.characterPositionY + offset)
-                            else it
-                        }
-                    }
-                }
+                handleCharacterPosition(event.positionChange)
             }
 
-            is GameBoyUiEvent.OnClickActionButton -> {}
-            GameBoyUiEvent.OnClickStartSelect -> {}
+            is GameBoyUiEvent.OnClickActionButton -> {
+                handleActionButtonClick(event.actionButton)
+            }
+
+            GameBoyUiEvent.OnClickStartSelect -> {
+                _uiState.update { it.copy(displayCredit = true) }
+            }
         }
     }
-}
 
-private fun isInBound(offset: Float, bounds: ClosedFloatingPointRange<Float>): Boolean {
-    return offset in bounds
+    private fun handleCharacterPosition(
+        positionChange: PositionChange
+    ) {
+        _uiState.update { currentState ->
+            val newPosition = when (positionChange) {
+                PositionChange.LEFT -> currentState.characterPositionX - POSITION_OFFSET
+                PositionChange.RIGHT -> currentState.characterPositionX + POSITION_OFFSET
+                PositionChange.UP -> currentState.characterPositionY - POSITION_OFFSET
+                PositionChange.DOWN -> currentState.characterPositionY + POSITION_OFFSET
+            }
+
+            // Use the Rect to check if the new position is in bounds
+            if (isWithinBounds(positionChange, newPosition)) {
+                when (positionChange) {
+                    PositionChange.LEFT -> currentState.copy(
+                        characterPositionX = newPosition,
+                        characterDirection = CharacterDirection.LEFT
+                    )
+
+                    PositionChange.RIGHT -> currentState.copy(
+                        characterPositionX = newPosition,
+                        characterDirection = CharacterDirection.RIGHT
+                    )
+
+                    PositionChange.UP -> currentState.copy(
+                        characterPositionY = newPosition,
+                        characterDirection = CharacterDirection.UP
+                    )
+
+                    PositionChange.DOWN -> currentState.copy(
+                        characterPositionY = newPosition,
+                        characterDirection = CharacterDirection.DOWN
+                    )
+                }
+            } else {
+                currentState
+            }
+        }
+    }
+
+    private fun handleActionButtonClick(actionButton: ActionButton) {
+        when (actionButton) {
+            ActionButton.A -> Unit
+            ActionButton.B -> {
+                _uiState.update { it.copy(displayCredit = false) }
+            }
+        }
+    }
+
+    private fun isWithinBounds(positionChange: PositionChange, newPosition: Float): Boolean {
+        return with(uiState.value) {
+            when (positionChange) {
+                PositionChange.LEFT, PositionChange.RIGHT ->
+                    characterBounds.left <= newPosition && newPosition <= characterBounds.right
+
+                PositionChange.UP, PositionChange.DOWN ->
+                    characterBounds.top <= newPosition && newPosition <= characterBounds.bottom
+            }
+        }
+    }
+
 }

@@ -21,7 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,7 +35,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
@@ -43,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toIntSize
 import com.phoenix.valentine.R
+import com.phoenix.valentine.model.CharacterAnimationState
+import com.phoenix.valentine.model.CharacterDirection
+import com.phoenix.valentine.model.CharacterSprite
 import com.phoenix.valentine.ui.theme.ClippedCircleShape
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -50,7 +54,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun GameBoyScreen(
     characterPosition: Offset,
-    onPositionChange: (PositionChange) -> Unit
+    characterDirection: CharacterDirection,
+    onPositionChange: (PositionChange) -> Unit,
+    displayCredit: Boolean,
+    goToCredit: () -> Unit,
+    removeCredit: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isDPadPressing by remember { mutableStateOf(false) }
@@ -66,14 +74,15 @@ fun GameBoyScreen(
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.onSurface)
         ) {
-            // Screen
             GameBoyCanvas(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f),
-                characterOffset = characterPosition
+                displayCredit = displayCredit,
+                characterOffset = characterPosition,
+                characterDirection = characterDirection,
+                isMoving = isDPadPressing
             )
-            // Controls
             GameBoyControls(
                 Modifier
                     .fillMaxSize()
@@ -81,13 +90,18 @@ fun GameBoyScreen(
                 onClickDPad = {
                     isDPadPressing = true
                     coroutineScope.launch {
-                        do {
+                        while (isDPadPressing) {
                             onPositionChange(it)
                             delay(50)
-                        } while(isDPadPressing)
+                        }
                     }
                 },
-                releaseDPad = { isDPadPressing = false }
+                releaseDPad = { isDPadPressing = false },
+                onClickA = {
+
+                },
+                onClickB = { removeCredit() },
+                onClickStartSelect = { goToCredit() }
             )
         }
     }
@@ -96,27 +110,115 @@ fun GameBoyScreen(
 @Composable
 private fun GameBoyCanvas(
     modifier: Modifier = Modifier,
-    characterOffset: Offset
+    displayCredit: Boolean,
+    characterOffset: Offset,
+    characterDirection: CharacterDirection,
+    isMoving: Boolean
 ) {
     val normalImage = painterResource(id = R.drawable.canvas_normal)
-    val catFrontLeft = ImageBitmap.imageResource(id = R.drawable.cat_front_left)
+    val creditImage = painterResource(id = R.drawable.canvas_credit)
+
+    val catLeft1 = ImageBitmap.imageResource(id = R.drawable.cat_left_1)
+    val catLeft2 = ImageBitmap.imageResource(id = R.drawable.cat_left_2)
+    val catRight1 = ImageBitmap.imageResource(id = R.drawable.cat_right_1)
+    val catRight2 = ImageBitmap.imageResource(id = R.drawable.cat_right_2)
+    val catUp1 = ImageBitmap.imageResource(id = R.drawable.cat_up_1)
+    val catUp2 = ImageBitmap.imageResource(id = R.drawable.cat_up_2)
+    val catDown1 = ImageBitmap.imageResource(id = R.drawable.cat_down_1)
+    val catDown2 = ImageBitmap.imageResource(id = R.drawable.cat_down_2)
+
+    // Load all character sprites
+    val characterSprites = remember {
+        listOf(
+            CharacterSprite(
+                catLeft1,
+                CharacterDirection.LEFT,
+                CharacterAnimationState.WALK_1
+            ),
+            CharacterSprite(
+                catLeft2,
+                CharacterDirection.LEFT,
+                CharacterAnimationState.WALK_2
+            ),
+            CharacterSprite(
+                catRight1,
+                CharacterDirection.RIGHT,
+                CharacterAnimationState.WALK_1
+            ),
+            CharacterSprite(
+                catRight2,
+                CharacterDirection.RIGHT,
+                CharacterAnimationState.WALK_2
+            ),
+            CharacterSprite(
+                catUp1,
+                CharacterDirection.UP,
+                CharacterAnimationState.WALK_1
+            ),
+            CharacterSprite(
+                catUp2,
+                CharacterDirection.UP,
+                CharacterAnimationState.WALK_2
+            ),
+            CharacterSprite(
+                catDown1,
+                CharacterDirection.DOWN,
+                CharacterAnimationState.WALK_1
+            ),
+            CharacterSprite(
+                catDown2,
+                CharacterDirection.DOWN,
+                CharacterAnimationState.WALK_2
+            ),
+        )
+    }
+
+    // Animation state
+    var currentAnimationState by remember { mutableIntStateOf(0) }
+    val animationDelay = 250L // Adjust for animation speed
+
+    LaunchedEffect(isMoving) {
+        if (isMoving) {
+            while (true) {
+                delay(animationDelay)
+                currentAnimationState = (currentAnimationState + 1) % 2
+            }
+        }
+    }
 
     Canvas(
         modifier = modifier
             .padding(16.dp)
             .clip(RoundedCornerShape(8.dp))
     ) {
+        if (displayCredit) {
+            with(creditImage) {
+                draw(size)
+            }
+            return@Canvas
+        }
+
         with(normalImage) {
             draw(size)
         }
-        drawImage(
-            image = catFrontLeft.apply { },
-            dstSize = (size * 0.075f).toIntSize(),
-            dstOffset = IntOffset(
-                x = (size.width * characterOffset.x).toInt(),
-                y = (size.height * characterOffset.y).toInt()
+
+        // Determine the correct sprite based on direction and animation state
+        val currentSprite = characterSprites.firstOrNull {
+            it.direction == characterDirection &&
+                    (it.animationState == CharacterAnimationState.entries.toTypedArray()[currentAnimationState])
+        }
+
+        // Draw the character
+        currentSprite?.let {
+            drawImage(
+                image = it.image,
+                dstSize = (size * 0.075f).toIntSize(),
+                dstOffset = IntOffset(
+                    x = (size.width * characterOffset.x).toInt(),
+                    y = (size.height * characterOffset.y).toInt()
+                )
             )
-        )
+        }
     }
 }
 
@@ -124,7 +226,10 @@ private fun GameBoyCanvas(
 private fun GameBoyControls(
     modifier: Modifier = Modifier,
     onClickDPad: (PositionChange) -> Unit,
-    releaseDPad: () -> Unit
+    releaseDPad: () -> Unit,
+    onClickA: () -> Unit,
+    onClickB: () -> Unit,
+    onClickStartSelect: () -> Unit
 ) {
     Column(
         modifier = modifier,
@@ -136,177 +241,209 @@ private fun GameBoyControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            // D-Pad
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // TOP D-Pad
-                Box(
-                    modifier = Modifier
-                        .height(36.dp)
-                        .width(36.dp)
-                        .background(Color.Gray)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = {
-                                    try {
-                                        onClickDPad(PositionChange.UP)
-                                        awaitRelease()
-                                    } finally {
-                                        releaseDPad()
-                                    }
-                                },
-                            )
-                        }
-                )
-                Row {
-                    // LEFT D-Pad
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        try {
-                                            onClickDPad(PositionChange.LEFT)
-                                            awaitRelease()
-                                        } finally {
-                                            releaseDPad()
-                                        }
-                                    },
-                                )
-                            }
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                    )
-                    // RIGHT D-Pad
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(36.dp)
-                            .background(Color.Gray)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        try {
-                                            onClickDPad(PositionChange.RIGHT)
-                                            awaitRelease()
-                                        } finally {
-                                            releaseDPad()
-                                        }
-                                    },
-                                )
-                            }
-                    )
-                }
-                // BOTTOM D-Pad
-                Box(
-                    modifier = Modifier
-                        .height(36.dp)
-                        .width(36.dp)
-                        .background(Color.Gray)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = {
-                                    try {
-                                        onClickDPad(PositionChange.DOWN)
-                                        awaitRelease()
-                                    } finally {
-                                        releaseDPad()
-                                    }
-                                },
-                            )
-                        }
-                )
-            }
-            // A, B
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = 36.dp)
-                        .size(48.dp)
-                        .clip(ClippedCircleShape())
-                        .background(Color.Red)
-                        .clickable {
+            GameBoyDPad(
+                onClickDPad = onClickDPad,
+                releaseDPad = releaseDPad
+            )
+            GameBoyActionButtons(
+                onClickA = onClickA,
+                onClickB = onClickB
+            )
 
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "A",
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.surface,
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .padding(end = 36.dp)
-                        .size(48.dp)
-                        .clip(ClippedCircleShape())
-                        .background(Color.Red)
-                        .clickable {
-
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "B",
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.surface,
-                    )
-                }
-            }
         }
         Spacer(Modifier.height(24.dp))
-        // Select, Start
+        GameBoyStartSelect(
+            onClickStartSelect = onClickStartSelect
+        )
+    }
+}
+
+@Composable
+fun GameBoyDPad(
+    onClickDPad: (PositionChange) -> Unit,
+    releaseDPad: () -> Unit
+) {
+    // D-Pad
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // TOP D-Pad
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .width(36.dp)
+                .background(Color.Gray)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            try {
+                                onClickDPad(PositionChange.UP)
+                                awaitRelease()
+                            } finally {
+                                releaseDPad()
+                            }
+                        },
+                    )
+                }
+        )
         Row {
-            Column(
-                modifier = Modifier.rotate(-25f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .height(12.dp)
-                        .width(36.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Gray)
-                        .clickable {
+            // LEFT D-Pad
+            Box(
+                modifier = Modifier
+                    .height(36.dp)
+                    .width(36.dp)
+                    .background(Color.Gray)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                try {
+                                    onClickDPad(PositionChange.LEFT)
+                                    awaitRelease()
+                                } finally {
+                                    releaseDPad()
+                                }
+                            },
+                        )
+                    }
+            )
+            Box(
+                modifier = Modifier
+                    .height(36.dp)
+                    .width(36.dp)
+                    .background(Color.Gray)
+            )
+            // RIGHT D-Pad
+            Box(
+                modifier = Modifier
+                    .height(36.dp)
+                    .width(36.dp)
+                    .background(Color.Gray)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                try {
+                                    onClickDPad(PositionChange.RIGHT)
+                                    awaitRelease()
+                                } finally {
+                                    releaseDPad()
+                                }
+                            },
+                        )
+                    }
+            )
+        }
+        // BOTTOM D-Pad
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .width(36.dp)
+                .background(Color.Gray)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            try {
+                                onClickDPad(PositionChange.DOWN)
+                                awaitRelease()
+                            } finally {
+                                releaseDPad()
+                            }
+                        },
+                    )
+                }
+        )
+    }
+}
 
-                        }
-                )
-                Text(
-                    text = "SELECT",
-                    color = MaterialTheme.colorScheme.surface,
-                    fontSize = 8.sp
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(
-                modifier = Modifier.rotate(-25f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .height(12.dp)
-                        .width(36.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Gray)
-                        .clickable {
+@Composable
+fun GameBoyActionButtons(
+    onClickA: () -> Unit,
+    onClickB: () -> Unit
+) {
+    // A, B
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = 36.dp)
+                .size(48.dp)
+                .clip(ClippedCircleShape())
+                .background(Color.Red)
+                .clickable {
+                    onClickA()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "A",
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.surface,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .padding(end = 36.dp)
+                .size(48.dp)
+                .clip(ClippedCircleShape())
+                .background(Color.Red)
+                .clickable {
+                    onClickB()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "B",
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.surface,
+            )
+        }
+    }
+}
 
-                        }
-                )
-                Text(
-                    text = "START",
-                    color = MaterialTheme.colorScheme.surface,
-                    fontSize = 8.sp
-                )
-            }
+@Composable
+fun GameBoyStartSelect(
+    onClickStartSelect: () -> Unit
+) {
+    // Select, Start
+    Row {
+        Column(
+            modifier = Modifier.rotate(-25f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(12.dp)
+                    .width(36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Gray)
+                    .clickable {
+                        onClickStartSelect()
+                    }
+            )
+            Text(
+                text = "SELECT",
+                color = MaterialTheme.colorScheme.surface,
+                fontSize = 8.sp
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(
+            modifier = Modifier.rotate(-25f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(12.dp)
+                    .width(36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Gray)
+                    .clickable {
+                        onClickStartSelect()
+                    }
+            )
+            Text(
+                text = "START",
+                color = MaterialTheme.colorScheme.surface,
+                fontSize = 8.sp
+            )
         }
     }
 }
@@ -314,11 +451,16 @@ private fun GameBoyControls(
 @Preview
 @Composable
 fun GameBoyScreenPreview() {
+    val uiState by remember { mutableStateOf(GameBoyUiState()) }
     GameBoyScreen(
         characterPosition = Offset(
-            x = GameBoyUiState().characterPositionX,
-            y = GameBoyUiState().characterPositionY
+            x = uiState.characterPositionX,
+            y = uiState.characterPositionY
         ),
-        onPositionChange = {}
+        characterDirection = uiState.characterDirection,
+        onPositionChange = {},
+        displayCredit = false,
+        goToCredit = {},
+        removeCredit = {}
     )
 }
