@@ -56,9 +56,11 @@ fun GameBoyScreen(
     characterPosition: Offset,
     characterDirection: CharacterDirection,
     onPositionChange: (PositionChange) -> Unit,
+    actionState: ActionState,
+    handleAction: () -> Unit,
     displayCredit: Boolean,
     goToCredit: () -> Unit,
-    removeCredit: () -> Unit
+    removeCredit: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isDPadPressing by remember { mutableStateOf(false) }
@@ -97,9 +99,7 @@ fun GameBoyScreen(
                     }
                 },
                 releaseDPad = { isDPadPressing = false },
-                onClickA = {
-
-                },
+                onClickA = { handleAction() },
                 onClickB = { removeCredit() },
                 onClickStartSelect = { goToCredit() }
             )
@@ -461,6 +461,8 @@ fun GameBoyScreenPreview() {
         onPositionChange = {},
         displayCredit = false,
         goToCredit = {},
-        removeCredit = {}
+        removeCredit = {},
+        actionState = ActionState.NONE,
+        handleAction = {}
     )
 }

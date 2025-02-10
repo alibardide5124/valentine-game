@@ -7,17 +7,33 @@ data class GameBoyUiState(
     val characterPositionX: Float = 0.5f,
     val characterPositionY: Float = 0.8f,
     val characterDirection: CharacterDirection = CharacterDirection.DOWN,
-    val characterBounds: CharacterBounds = CharacterBounds(
+    val characterBounds: Bounds = Bounds(
         top = 0.35f,
         left = 0.05f,
         bottom = 0.95f,
         right = 0.95f
-    )
+    ),
+    val actionState: ActionState = ActionState.NONE,
+    val yesBounds: Bounds = Bounds(
+        top = 0.52f,
+        left = 0.0f,
+        bottom = 0.62f,
+        right = 0.22f
+    ),
+    val noBounds: Bounds = Bounds(
+        top = 0.52f,
+        left = 0.76f,
+        bottom = 0.62f,
+        right = 0.94f
+    ),
+    val noCount: Int = 0
 )
 
-data class CharacterBounds(
+data class Bounds(
     val top: Float,
     val left: Float,
     val bottom: Float,
     val right: Float
 )
+
+enum class ActionState { NONE, YES, NO }

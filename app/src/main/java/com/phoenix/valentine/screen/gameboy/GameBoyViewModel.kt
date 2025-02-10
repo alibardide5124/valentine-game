@@ -1,5 +1,6 @@
 package com.phoenix.valentine.screen.gameboy
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.phoenix.valentine.model.CharacterDirection
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -76,7 +77,17 @@ class GameBoyViewModel @Inject constructor(
 
     private fun handleActionButtonClick(actionButton: ActionButton) {
         when (actionButton) {
-            ActionButton.A -> Unit
+            ActionButton.A -> {
+                if (isYesActionWithinBounds()) {
+                    _uiState.update { it.copy(actionState = ActionState.YES) }
+                    Log.d("Action", "Yes")
+                }
+                if (isNoActionWithinBounds()) {
+                    _uiState.update { it.copy(actionState = ActionState.NO) }
+                    Log.d("Action", "No")
+                }
+            }
+
             ActionButton.B -> {
                 _uiState.update { it.copy(displayCredit = false) }
             }
@@ -95,4 +106,21 @@ class GameBoyViewModel @Inject constructor(
         }
     }
 
+    private fun isYesActionWithinBounds(): Boolean {
+        return with(uiState.value) {
+            yesBounds.left <= characterPositionX &&
+                    characterPositionX <= yesBounds.right &&
+                    yesBounds.top <= characterPositionY &&
+                    characterPositionY <= yesBounds.bottom
+        }
+    }
+
+    private fun isNoActionWithinBounds(): Boolean {
+        return with(uiState.value) {
+            noBounds.left <= characterPositionX &&
+                    characterPositionX <= noBounds.right &&
+                    noBounds.top <= characterPositionY &&
+                    characterPositionY <= noBounds.bottom
+        }
+    }
 }
