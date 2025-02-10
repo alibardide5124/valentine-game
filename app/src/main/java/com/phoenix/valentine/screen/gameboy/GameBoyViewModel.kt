@@ -2,11 +2,14 @@ package com.phoenix.valentine.screen.gameboy
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.phoenix.valentine.model.CharacterDirection
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -46,29 +49,25 @@ class GameBoyViewModel @Inject constructor(
                 PositionChange.UP -> currentState.characterPositionY - POSITION_OFFSET
                 PositionChange.DOWN -> currentState.characterPositionY + POSITION_OFFSET
             }
-
+            // Change Character direction
+            _uiState.update {
+                it.copy(
+                    characterDirection =
+                    when (positionChange) {
+                        PositionChange.LEFT ->  CharacterDirection.LEFT
+                        PositionChange.RIGHT -> CharacterDirection.RIGHT
+                        PositionChange.UP -> CharacterDirection.UP
+                        PositionChange.DOWN -> CharacterDirection.DOWN
+                    }
+                )
+            }
             // Use the Rect to check if the new position is in bounds
             if (isWithinBounds(positionChange, newPosition)) {
                 when (positionChange) {
-                    PositionChange.LEFT -> currentState.copy(
-                        characterPositionX = newPosition,
-                        characterDirection = CharacterDirection.LEFT
-                    )
-
-                    PositionChange.RIGHT -> currentState.copy(
-                        characterPositionX = newPosition,
-                        characterDirection = CharacterDirection.RIGHT
-                    )
-
-                    PositionChange.UP -> currentState.copy(
-                        characterPositionY = newPosition,
-                        characterDirection = CharacterDirection.UP
-                    )
-
-                    PositionChange.DOWN -> currentState.copy(
-                        characterPositionY = newPosition,
-                        characterDirection = CharacterDirection.DOWN
-                    )
+                    PositionChange.LEFT -> currentState.copy(characterPositionX = newPosition)
+                    PositionChange.RIGHT -> currentState.copy(characterPositionX = newPosition)
+                    PositionChange.UP -> currentState.copy(characterPositionY = newPosition)
+                    PositionChange.DOWN -> currentState.copy(characterPositionY = newPosition)
                 }
             } else {
                 currentState
@@ -81,11 +80,32 @@ class GameBoyViewModel @Inject constructor(
             ActionButton.A -> {
                 if (isYesActionWithinBounds()) {
                     _uiState.update { it.copy(actionState = ActionState.YES) }
-                    Log.d("Action", "Yes")
                 }
                 if (isNoActionWithinBounds()) {
-                    _uiState.update { it.copy(actionState = ActionState.NO) }
-                    Log.d("Action", "No")
+                    viewModelScope.launch {
+                        _uiState.update { it.copy(displayHole = true) }
+                        delay(500)
+                        _uiState.update { it.copy(displayCharacter = false) }
+                        delay(500)
+                        _uiState.update {
+                            it.copy(
+                                actionState = ActionState.NO,
+                                noAttempts = it.noAttempts + 1,
+                            )
+                        }
+                        delay(3500)
+                        _uiState.update {
+                            it.copy(
+                                displayHole = false,
+                                displayCharacter = true,
+                                characterPositionX = 0.5f,
+                                characterPositionY = 0.8f,
+                                actionState = ActionState.NONE,
+                                characterBounds = if (it.noAttempts < 5) it.characterBounds
+                                else it.characterBounds.copy(right = 0.68f)
+                            )
+                        }
+                    }
                 }
             }
 

@@ -13,6 +13,7 @@ fun GameBoyRoute(
     val uiState by gameBoyViewModel.uiState.collectAsStateWithLifecycle()
 
     GameBoyScreen(
+        displayCharacter = uiState.displayCharacter,
         characterPosition = Offset(uiState.characterPositionX, uiState.characterPositionY),
         characterDirection = uiState.characterDirection,
         onPositionChange = { gameBoyViewModel.onEvent(GameBoyUiEvent.UpdateCharacterPosition(it)) },
@@ -20,6 +21,8 @@ fun GameBoyRoute(
         requestDisplayCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickStartSelect) },
         requestRemoveCredit = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.B)) },
         actionState = uiState.actionState,
-        onAction = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.A)) }
+        onAction = { gameBoyViewModel.onEvent(GameBoyUiEvent.OnClickActionButton(ActionButton.A)) },
+        displayHole = uiState.displayHole,
+        noAttempts = uiState.noAttempts
     )
 }

@@ -3,6 +3,7 @@ package com.phoenix.valentine.screen.gameboy
 import com.phoenix.valentine.model.CharacterDirection
 
 data class GameBoyUiState(
+    val displayCharacter: Boolean = true,
     val displayCredit: Boolean = false,
     val characterPositionX: Float = 0.5f,
     val characterPositionY: Float = 0.8f,
@@ -26,7 +27,8 @@ data class GameBoyUiState(
         bottom = 0.62f,
         right = 0.94f
     ),
-    val noCount: Int = 0
+    val displayHole: Boolean = false,
+    val noAttempts: Int = 0,
 )
 
 data class Bounds(

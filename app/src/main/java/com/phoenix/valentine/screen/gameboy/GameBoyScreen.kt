@@ -1,6 +1,8 @@
 package com.phoenix.valentine.screen.gameboy
 
+import android.util.Log
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -55,11 +57,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun GameBoyScreen(
+    displayCharacter: Boolean,
     characterPosition: Offset,
     characterDirection: CharacterDirection,
     onPositionChange: (PositionChange) -> Unit,
     actionState: ActionState,
     onAction: () -> Unit,
+    noAttempts: Int,
+    displayHole: Boolean,
     isCreditDisplayed: Boolean,
     requestDisplayCredit: () -> Unit,
     requestRemoveCredit: () -> Unit,
@@ -82,11 +87,14 @@ fun GameBoyScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f),
+                displayCharacter = displayCharacter,
                 displayCredit = isCreditDisplayed,
                 characterOffset = characterPosition,
                 characterDirection = characterDirection,
                 isMoving = isDPadPressing,
-                actionState = actionState
+                actionState = actionState,
+                displayHole = displayHole,
+                noAttempts = noAttempts
             )
             GameBoyControls(
                 Modifier
@@ -113,16 +121,29 @@ fun GameBoyScreen(
 @Composable
 private fun GameBoyCanvas(
     modifier: Modifier = Modifier,
+    displayCharacter: Boolean,
     displayCredit: Boolean,
     characterOffset: Offset,
     characterDirection: CharacterDirection,
     isMoving: Boolean,
-    actionState: ActionState
+    actionState: ActionState,
+    displayHole: Boolean,
+    noAttempts: Int
 ) {
+    val coroutineScope = rememberCoroutineScope()
     // Init screens
     val normalImage = painterResource(id = R.drawable.canvas_normal)
     val yesImage = painterResource(id = R.drawable.canvas_yes)
+    val holeImage = painterResource(id = R.drawable.canvas_hole)
+    val blockedNoImage = painterResource(id = R.drawable.canvas_blocked_no)
     val creditImage = painterResource(id = R.drawable.canvas_credit)
+    // No screen variants
+    val no1 = painterResource(id = R.drawable.canvas_no1)
+    val no2 = painterResource(id = R.drawable.canvas_no2)
+    val no3 = painterResource(id = R.drawable.canvas_no3)
+    val no4 = painterResource(id = R.drawable.canvas_no4)
+    val no5 = painterResource(id = R.drawable.canvas_no5)
+    val noImages = remember { mutableListOf(no1, no2, no3, no4, no5) }
 
     val achivement = ImageBitmap.imageResource(id = R.drawable.achivement)
 
@@ -206,44 +227,79 @@ private fun GameBoyCanvas(
         }
     }
 
+    val fallDownAnimation = remember { Animatable(0f) }
+    LaunchedEffect(actionState == ActionState.NO) {
+        Log.d("Action", "Fall Down ${fallDownAnimation.value}")
+        if (actionState == ActionState.NO) {
+            coroutineScope.launch {
+                fallDownAnimation.animateTo(
+                    1f,
+                    animationSpec = tween(durationMillis = 3000, easing = LinearEasing)
+                )
+                delay(3000L)
+                Log.d("Action", "Fall Down Reset")
+                fallDownAnimation.snapTo(0f)
+            }
+        }
+    }
+
+    // The Actual Canvas
     Canvas(
         modifier = modifier
             .padding(16.dp)
             .clip(RoundedCornerShape(8.dp))
     ) {
-        if (displayCredit) {
-            with(creditImage) {
+        if (actionState == ActionState.NONE) {
+            if (displayCredit) {
+                with(creditImage) {
+                    draw(size)
+                }
+                return@Canvas
+            }
+
+            with(normalImage) {
                 draw(size)
             }
-            return@Canvas
-        }
+            if (displayHole)
+                with(holeImage) {
+                    draw(size)
+                }
+            else if (noAttempts >= 5)
+                with(blockedNoImage) {
+                    draw(size)
+                }
 
-        with(normalImage) {
-            draw(size)
-        }
 
-        // Determine the correct sprite based on direction and animation state
-        val currentSprite = characterSprites.firstOrNull {
-            it.direction == characterDirection &&
-                    (it.animationState == CharacterAnimationState.entries.toTypedArray()[currentAnimationState])
-        }
+            // Determine the correct sprite based on direction and animation state
+            val currentSprite = characterSprites.firstOrNull {
+                it.direction == characterDirection &&
+                        (it.animationState == CharacterAnimationState.entries.toTypedArray()[currentAnimationState])
+            }
 
-        currentSprite?.let {
+            if (displayCharacter)
+                currentSprite?.let {
+                    drawImage(
+                        image = it.image,
+                        dstSize = (size * 0.075f).toIntSize(),
+                        dstOffset = IntOffset(
+                            x = (size.width * characterOffset.x).toInt(),
+                            y = (size.height * characterOffset.y).toInt()
+                        )
+                    )
+                }
+        } else if (actionState == ActionState.NO) {
+            with(noImages[noAttempts - 1]) {
+                draw(size)
+            }
             drawImage(
-                image = it.image,
+                image = catDown1,
                 dstSize = (size * 0.075f).toIntSize(),
                 dstOffset = IntOffset(
-                    x = (size.width * characterOffset.x).toInt(),
-                    y = (size.height * characterOffset.y).toInt()
+                    x = ((size.width / 2) - (size.width * 0.075f)).toInt(),
+                    y = (size.height * fallDownAnimation.value).toInt()
                 )
             )
-        }
-
-        if (actionState == ActionState.NO) {
-
-        }
-
-        if (actionState == ActionState.YES) {
+        } else if (actionState == ActionState.YES) {
             with(yesImage) {
                 draw(size, alpha = fadeInAnimation.value)
             }
@@ -254,7 +310,6 @@ private fun GameBoyCanvas(
                     y = (size.height) - (size.height * 0.18f * slideUpAnimation.value)
                 )
             )
-            return@Canvas
         }
     }
 }
@@ -500,6 +555,9 @@ fun GameBoyScreenPreview() {
         requestDisplayCredit = {},
         requestRemoveCredit = {},
         actionState = ActionState.NONE,
-        onAction = {}
+        onAction = {},
+        displayHole = false,
+        noAttempts = 5,
+        displayCharacter = true
     )
 }
